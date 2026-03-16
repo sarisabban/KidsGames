@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeBlast — Kids Typing Game</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d1a;
+    --c1: #ff4d6d;
+    --c2: #ff9f1c;
+    --c3: #ffec3d;
+    --c4: #3bff8a;
+    --c5: #3dd9ff;
+    --c6: #bf5fff;
+    --c7: #ff6bdf;
+    --font: clamp(1.8rem, 4vw, 3rem);
+  }
+
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: 'Courier New', Courier, monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  /* ===== START SCREEN ===== */
+  #screen-start { gap: 1.5rem; }
+
+  .game-title {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c5));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: title-pulse 2s ease-in-out infinite;
+    letter-spacing: 0.05em;
+  }
+
+  .game-subtitle {
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
+    color: #aaa;
+    animation: subtitle-drift 3s ease-in-out infinite;
+  }
+
+  .level-select-label {
+    font-size: 0.9rem;
+    color: #888;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+
+  .level-buttons {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 520px;
+  }
+
+  .btn-level {
+    padding: 0.5rem 1rem;
+    border: 2px solid #333;
+    background: #111;
+    color: #aaa;
+    font-family: inherit;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+  }
+  .btn-level:hover { border-color: #666; color: #fff; background: #1a1a2e; }
+  .btn-level.selected {
+    border-color: var(--c4);
+    color: var(--bg);
+    background: var(--c4);
+    box-shadow: 0 0 12px var(--c4);
+    font-weight: bold;
+  }
+
+  .btn-play {
+    padding: 0.9rem 3rem;
+    font-size: 1.4rem;
+    font-family: inherit;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--c4), var(--c5));
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--bg);
+    box-shadow: 0 0 24px var(--c4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.08em;
+  }
+  .btn-play:hover { transform: scale(1.05); box-shadow: 0 0 36px var(--c4); }
+  .btn-play:active { transform: scale(0.97); }
+
+  /* ===== GAME SCREEN ===== */
+  #screen-game {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  #hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.4rem;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    gap: 1rem;
+  }
+
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #888;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hud-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #fff;
+    transition: transform 0.2s;
+  }
+  .hud-value.bounce { animation: score-bounce 0.3s ease; }
+
+  #lives-display { font-size: 1.3rem; letter-spacing: 0.1em; }
+
+  #level-progress-bar {
+    height: 4px;
+    background: #1a1a2e;
+    flex-shrink: 0;
+  }
+  #level-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c4), var(--c5));
+    transition: width 0.4s ease;
+    box-shadow: 0 0 8px var(--c4);
+  }
+
+  #arena {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #input-bar {
+    padding: 0.8rem 1.4rem;
+    background: rgba(255,255,255,0.04);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-shrink: 0;
+  }
+  #input-bar.hidden { display: none; }
+
+  #word-input {
+    flex: 1;
+    background: #111;
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1.2rem;
+    padding: 0.5rem 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+    caret-color: var(--c4);
+  }
+  #word-input:focus { border-color: var(--c4); }
+  #word-input.correct { border-color: var(--c4); }
+  #word-input.wrong { border-color: var(--c1); animation: shake 0.3s ease; }
+
+  .input-hint {
+    font-size: 0.8rem;
+    color: #555;
+    white-space: nowrap;
+  }
+
+  /* ===== TARGET ===== */
+  .target {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    cursor: default;
+    user-select: none;
+    animation: pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    min-width: 80px;
+    padding: 0.5rem 1.2rem 0.3rem;
+  }
+
+  .target-text {
+    font-size: var(--font);
+    font-weight: 900;
+    color: var(--bg);
+    text-align: center;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .target-text .typed { opacity: 0.45; }
+  .target-text .cursor { border-right: 3px solid rgba(0,0,0,0.5); }
+  .target-text .remaining { }
+
+  .timer-bar-wrap {
+    width: 100%;
+    height: 6px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.35rem;
+  }
+  .timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--c4);
+    border-radius: 3px;
+    transition: background 0.3s;
+  }
+
+  /* ===== LEVEL-UP BANNER ===== */
+  #level-up-banner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    padding: 0.8rem;
+    background: linear-gradient(135deg, var(--c4), var(--c5));
+    color: var(--bg);
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    transform: translateY(-100%);
+    z-index: 100;
+  }
+  #level-up-banner.active { animation: level-up-slide 1.8s ease forwards; }
+
+  /* ===== GAMEOVER SCREEN ===== */
+  #screen-gameover { gap: 1.5rem; }
+
+  .gameover-title {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 900;
+    color: var(--c1);
+    text-shadow: 0 0 30px var(--c1);
+    animation: shake 0.5s ease;
+  }
+
+  .final-score-label { color: #888; font-size: 1rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .final-score-value {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--c3), var(--c2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .btn-again {
+    padding: 0.9rem 2.5rem;
+    font-size: 1.2rem;
+    font-family: inherit;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: #fff;
+    box-shadow: 0 0 20px var(--c1);
+    transition: transform 0.15s;
+    letter-spacing: 0.08em;
+  }
+  .btn-again:hover { transform: scale(1.05); }
+
+  /* ===== PARTICLES ===== */
+  .particle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+  }
+
+  /* ===== ARENA FLASH ===== */
+  #miss-flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,77,109,0.18);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 50;
+    transition: opacity 0.1s;
+  }
+  #miss-flash.active { opacity: 1; }
+
+  /* ===== KEYFRAMES ===== */
+  @keyframes pop-in {
+    0%   { transform: scale(0); opacity: 0; }
+    70%  { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes pop-correct {
+    0%   { transform: scale(1); opacity: 1; }
+    40%  { transform: scale(1.3); opacity: 1; filter: brightness(1.5); }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%  { transform: translateX(-8px); }
+    30%  { transform: translateX(8px); }
+    45%  { transform: translateX(-8px); }
+    60%  { transform: translateX(8px); }
+    75%  { transform: translateX(-4px); }
+    90%  { transform: translateX(4px); }
+  }
+
+  @keyframes level-up-slide {
+    0%   { transform: translateY(-100%); }
+    15%  { transform: translateY(0); }
+    75%  { transform: translateY(0); }
+    100% { transform: translateY(-100%); }
+  }
+
+  @keyframes score-bounce {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.5); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes title-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+  }
+
+  @keyframes subtitle-drift {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  /* Sentence mode target styling */
+  .target.sentence-mode {
+    left: 5% !important;
+    right: 5% !important;
+    width: auto !important;
+    min-width: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    animation: sentence-pop-in 0.3s ease forwards;
+    padding: 1rem 1.5rem;
+    border-radius: 18px;
+  }
+  .target.sentence-mode .target-text {
+    font-size: clamp(1rem, 3vw, 1.8rem);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: center;
+  }
+
+  @keyframes sentence-pop-in {
+    0%   { opacity: 0; transform: translateY(-50%) scale(0.9); }
+    100% { opacity: 1; transform: translateY(-50%) scale(1); }
+  }
+
+  .target.sentence-mode.correct-anim {
+    animation: pop-correct 0.4s ease forwards !important;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== START SCREEN ===== -->
+<div id="screen-start" class="screen">
+  <div class="game-title">TypeBlast</div>
+  <div class="game-subtitle">⌨️ Train your fingers, blast every key!</div>
+  <div class="level-select-label">Choose your level</div>
+  <div class="level-buttons" id="level-buttons"></div>
+  <button class="btn-play" id="btn-play">▶ Play</button>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div id="screen-game" class="screen hidden">
+  <div id="hud">
+    <div class="hud-item">
+      <span>Score</span>
+      <span class="hud-value" id="hud-score">0</span>
+    </div>
+    <div class="hud-item">
+      <span>Level</span>
+      <span class="hud-value" id="hud-level">1</span>
+    </div>
+    <div class="hud-item">
+      <span>Lives</span>
+      <span id="lives-display">♥♥♥</span>
+    </div>
+    <div class="hud-item">
+      <span>Hits</span>
+      <span class="hud-value" id="hud-hits">0<span style="color:#555;font-size:0.8rem">/100</span></span>
+    </div>
+  </div>
+  <div id="level-progress-bar"><div id="level-progress-fill" style="width:0%"></div></div>
+  <div id="arena">
+    <div id="miss-flash"></div>
+    <div id="level-up-banner">LEVEL UP! 🎉</div>
+  </div>
+  <div id="input-bar" class="hidden">
+    <input type="text" id="word-input" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" placeholder="Type here…">
+    <span class="input-hint" id="input-hint">type to match</span>
+  </div>
+</div>
+
+<!-- ===== GAME OVER SCREEN ===== -->
+<div id="screen-gameover" class="screen hidden">
+  <div class="gameover-title">Game Over</div>
+  <div class="final-score-label">Final Score</div>
+  <div class="final-score-value" id="final-score">0</div>
+  <div style="color:#666;font-size:0.9rem" id="final-level-info"></div>
+  <button class="btn-again" id="btn-again">▶ Play Again</button>
+</div>
+
+<script>
+// =====================================================================
+// WORD / SENTENCE LISTS
+// =====================================================================
+const WORDS_L5 = [
+  'cat','dog','run','sun','fun','hat','frog','jump','swim','play',
+  'cake','fish','bird','star','moon','tree','book','frog','bell','duck',
+  'ball','rain','snow','rose','leaf','wind','fire','lamp','rock','sand',
+  'milk','eggs','rice','corn','pear','plum','kite','boat','ship','drum',
+  'drum','frog','slug','clam','moth','worm','fox','bear','wolf','deer',
+  'hand','feet','head','knee','face','nose','chin','lips','ears','eyes'
+];
+
+const WORDS_L6_BASE = [
+  'Apple','Brave','Cloud','Dance','Eagle','Flame','Globe','Happy',
+  'Igloo','Jolly','Karma','Lemon','Magic','Night','Ocean','Piano',
+  'Queen','River','Sunny','Tiger','Uncle','Vivid','Witch','Xylophone',
+  'Yellow','Zebra','Robot','Pixel','Ninja','Mango','Lotus','Koala',
+  'Jumpy','Iguana','Hippo','Gecko','Falcon','Dolphin','Cobalt','Blast',
+  'Wizard','Vortex','Turbo','Splash','Rumble','Prism','Noodle','Monster',
+  'Laser','Kaboom','Jester','Inferno','Hammer','Glitch','Fiesta','Dynamo',
+  'Cosmos','Bronco','Atomic','Arctic','Zapper','Yonder','Xenon','Wombat'
+];
+
+const SENTENCES_L7 = [
+  'The cat sat on the mat',
+  'I can see the big red bus',
+  'She sells sea shells by the sea shore',
+  'A silly penguin wore a top hat',
+  'My dog ate my homework again',
+  'Frogs in tutus love to dance',
+  'The wizard sneezed and turned blue',
+  'Jack and Jill ran up the hill',
+  'The quick brown fox jumps high',
+  'I like to eat cake for lunch',
+  'We play in the park after school',
+  'The moon glows bright at night',
+  'A tiny robot baked some pies',
+  'Five ducks swam in the blue pond',
+  'The silly clown tripped on a banana',
+  'Penguins cannot fly but they can swim',
+  'My cat chases butterflies in the garden',
+  'The dragon sneezed and melted the snow',
+  'We built a giant sandcastle today',
+  'The baby elephant danced in the rain',
+  'Space ships zoom past shining stars',
+  'I found a rainbow in my soup',
+  'The robot learned to juggle three hats',
+  'Cows can moo but goats say baa',
+  'The pirate lost his map and cried',
+  'A magical broom swept the whole town',
+  'Seven monkeys jumped on the trampoline',
+  'The chef made pasta shaped like stars',
+  'My shoes are tied in a double knot',
+  'The ghost hiccuped and scared itself',
+  'We planted seeds and watched them grow',
+  'The little train said I think I can',
+  'Butterflies have colorful painted wings',
+  'My pencil drew a smiling sun today',
+  'The bear ate all the honey in one go',
+  'A purple parrot perched on a pirate ship',
+  'The snowman wore a very long scarf',
+  'I wish I had a pet dinosaur',
+  'The cake was covered in rainbow sprinkles',
+  'Two fluffy kittens played with red yarn'
+];
+
+// =====================================================================
+// LEVEL CONFIG
+// =====================================================================
+const HOME_ROW   = 'ASDFGHJKL'.split('');
+const TOP_ROW    = 'QWERTYUIOP'.split('');
+const BOTTOM_ROW = 'ZXCVBNM'.split('');
+const DIGITS     = '0123456789'.split('');
+const ALL_ALPHA  = [...HOME_ROW, ...TOP_ROW, ...BOTTOM_ROW];
+const ALL_CHARS  = [...ALL_ALPHA, ...DIGITS];
+
+const LEVELS = [
+  { id:1, label:'Level 1',  desc:'Home row',          mode:'letter',   chars: HOME_ROW,  timerMs:3000 },
+  { id:2, label:'Level 2',  desc:'+ Top row',         mode:'letter',   chars: [...HOME_ROW,...TOP_ROW], timerMs:3000 },
+  { id:3, label:'Level 3',  desc:'All letters',       mode:'letter',   chars: ALL_ALPHA, timerMs:3000 },
+  { id:4, label:'Level 4',  desc:'Letters + numbers', mode:'letter',   chars: ALL_CHARS, timerMs:3000 },
+  { id:5, label:'Level 5',  desc:'Short words',       mode:'word',     words: WORDS_L5,  timerMs:3000 },
+  { id:6, label:'Level 6',  desc:'Mixed-case + nums', mode:'word',     words: WORDS_L6_BASE, timerMs:3000 },
+  { id:7, label:'Level 7',  desc:'Full sentences',    mode:'sentence', sentences: SENTENCES_L7, timerMs:10000 },
+];
+
+const COLORS = ['#ff4d6d','#ff9f1c','#ffec3d','#3bff8a','#3dd9ff','#bf5fff','#ff6bdf'];
+
+// =====================================================================
+// STATE
+// =====================================================================
+let state = {};
+let spawnTimeout = null;
+
+function freshState(startLevel) {
+  return {
+    screen: 'start',
+    level: startLevel,
+    score: 0,
+    consecutiveMisses: 0,
+    successesThisLevel: 0,
+    activeTarget: null,
+    animFrameId: null,
+    spawnPending: false,
+  };
+}
+
+// =====================================================================
+// DOM REFS
+// =====================================================================
+const $ = id => document.getElementById(id);
+const screens = {
+  start:    $('screen-start'),
+  game:     $('screen-game'),
+  gameover: $('screen-gameover'),
+};
+
+const arena         = $('arena');
+const inputBar      = $('input-bar');
+const wordInput     = $('word-input');
+const hudScore      = $('hud-score');
+const hudLevel      = $('hud-level');
+const hudHits       = $('hud-hits');
+const livesDisplay  = $('lives-display');
+const progressFill  = $('level-progress-fill');
+const levelUpBanner = $('level-up-banner');
+const missFlash     = $('miss-flash');
+
+// =====================================================================
+// AUDIO
+// =====================================================================
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, type, duration, gain=0.3, delay=0) {
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const vol = ctx.createGain();
+    osc.connect(vol);
+    vol.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.value = freq;
+    vol.gain.setValueAtTime(0, ctx.currentTime + delay);
+    vol.gain.linearRampToValueAtTime(gain, ctx.currentTime + delay + 0.01);
+    vol.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration + 0.05);
+  } catch(e) {}
+}
+
+function soundSuccess() { playTone(880, 'sine', 0.08); }
+function soundMiss()    { playTone(220, 'square', 0.1, 0.25); }
+function soundLevelUp() {
+  playTone(523, 'sine', 0.12, 0.3, 0);
+  playTone(659, 'sine', 0.12, 0.3, 0.13);
+  playTone(784, 'sine', 0.2,  0.3, 0.26);
+}
+
+// =====================================================================
+// SCREEN MANAGEMENT
+// =====================================================================
+function showScreen(name) {
+  Object.entries(screens).forEach(([k,el]) => el.classList.toggle('hidden', k !== name));
+  state.screen = name;
+}
+
+// =====================================================================
+// START SCREEN SETUP
+// =====================================================================
+let selectedLevel = 1;
+
+function buildStartScreen() {
+  const container = $('level-buttons');
+  container.innerHTML = '';
+  LEVELS.forEach(lvl => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-level' + (lvl.id === selectedLevel ? ' selected' : '');
+    btn.dataset.level = lvl.id;
+    btn.innerHTML = `<strong>${lvl.label}</strong><br><small>${lvl.desc}</small>`;
+    btn.addEventListener('click', () => {
+      selectedLevel = lvl.id;
+      document.querySelectorAll('.btn-level').forEach(b =>
+        b.classList.toggle('selected', +b.dataset.level === selectedLevel));
+    });
+    container.appendChild(btn);
+  });
+}
+
+$('btn-play').addEventListener('click', () => startGame(selectedLevel));
+$('btn-again').addEventListener('click', () => { showScreen('start'); buildStartScreen(); });
+
+// =====================================================================
+// GAME START
+// =====================================================================
+function startGame(levelId) {
+  state = freshState(levelId);
+  updateHUD();
+  showScreen('game');
+
+  // Clear any old targets
+  arena.querySelectorAll('.target').forEach(n => n.remove());
+  arena.querySelectorAll('.particle').forEach(n => n.remove());
+
+  const lvl = LEVELS[state.level - 1];
+  if (lvl.mode === 'letter') {
+    inputBar.classList.add('hidden');
+    document.addEventListener('keydown', onKeyDown);
+    hasKeyDownListener = true;
+  } else {
+    inputBar.classList.remove('hidden');
+    wordInput.value = '';
+    wordInput.focus();
+  }
+
+  scheduleSpawn(0);
+  state.animFrameId = requestAnimationFrame(tick);
+}
+
+// =====================================================================
+// MAIN RAF LOOP
+// =====================================================================
+function tick(now) {
+  state.animFrameId = requestAnimationFrame(tick);
+  const t = state.activeTarget;
+  if (!t || t.expired) return;
+
+  const elapsed = now - t.spawnedAt;
+  const pct = Math.min(elapsed / t.timerMs, 1);
+  const remaining = 1 - pct;
+
+  // Update timer bar
+  if (t.timerBarNode) {
+    t.timerBarNode.style.width = (remaining * 100) + '%';
+    if (pct > 0.7)       t.timerBarNode.style.background = '#ff4d6d';
+    else if (pct > 0.4)  t.timerBarNode.style.background = '#ffec3d';
+    else                 t.timerBarNode.style.background = '#3bff8a';
+  }
+
+  if (pct >= 1) handleExpiry(t);
+}
+
+// =====================================================================
+// SPAWN
+// =====================================================================
+function scheduleSpawn(delay) {
+  if (spawnTimeout) clearTimeout(spawnTimeout);
+  spawnTimeout = setTimeout(spawnTarget, delay);
+}
+
+function pickColor() {
+  return COLORS[Math.floor(Math.random() * COLORS.length)];
+}
+
+function pickText() {
+  const lvl = LEVELS[state.level - 1];
+  if (lvl.mode === 'letter') {
+    return lvl.chars[Math.floor(Math.random() * lvl.chars.length)];
+  } else if (lvl.mode === 'word') {
+    let word;
+    if (state.level === 6) {
+      const base = lvl.words[Math.floor(Math.random() * lvl.words.length)];
+      // 40% chance to inject one digit
+      if (Math.random() < 0.4) {
+        const idx = Math.floor(Math.random() * base.length);
+        const digit = String(Math.floor(Math.random() * 10));
+        word = base.slice(0, idx) + digit + base.slice(idx + 1);
+      } else {
+        word = base;
+      }
+    } else {
+      word = lvl.words[Math.floor(Math.random() * lvl.words.length)];
+    }
+    return word;
+  } else {
+    // sentence
+    return lvl.sentences[Math.floor(Math.random() * lvl.sentences.length)];
+  }
+}
+
+function spawnTarget() {
+  if (state.screen !== 'game') return;
+  const lvl = LEVELS[state.level - 1];
+
+  const color = pickColor();
+  const text  = pickText();
+  const isSentence = lvl.mode === 'sentence';
+
+  // Build DOM
+  const node = document.createElement('div');
+  node.className = 'target' + (isSentence ? ' sentence-mode' : '');
+  node.style.background = color;
+  node.style.boxShadow = `0 0 18px ${color}88, 0 0 6px ${color}`;
+
+  const textNode = document.createElement('div');
+  textNode.className = 'target-text';
+  textNode.textContent = text;
+  node.appendChild(textNode);
+
+  const timerWrap = document.createElement('div');
+  timerWrap.className = 'timer-bar-wrap';
+  const timerBar = document.createElement('div');
+  timerBar.className = 'timer-bar';
+  timerWrap.appendChild(timerBar);
+  node.appendChild(timerWrap);
+
+  let x = 0, y = 0;
+  if (!isSentence) {
+    // Measure after insert (approximate sizing)
+    const arenaW = arena.clientWidth;
+    const arenaH = arena.clientHeight;
+    const estW = Math.max(100, text.length * 36 + 48);
+    const estH = 90;
+    x = Math.random() * Math.max(10, arenaW - estW - 20) + 10;
+    y = Math.random() * Math.max(10, arenaH - estH - 60) + 10;
+    node.style.left = x + 'px';
+    node.style.top  = y + 'px';
+  }
+
+  arena.appendChild(node);
+
+  // Override animation for sentence (already positioned by CSS)
+  if (isSentence) {
+    node.style.animation = 'sentence-pop-in 0.3s ease forwards';
+  }
+
+  const timerMs = isSentence
+    ? Math.max(lvl.timerMs, text.length * 220)  // scale by length
+    : lvl.timerMs;
+
+  const target = {
+    id: Date.now(),
+    text,
+    typedSoFar: '',
+    x, y,
+    spawnedAt: performance.now(),
+    timerMs,
+    node,
+    textNode,
+    timerBarNode: timerBar,
+    expired: false,
+    color,
+    isSentence,
+  };
+
+  state.activeTarget = target;
+
+  // For word/sentence mode, clear input
+  if (lvl.mode !== 'letter') {
+    wordInput.value = '';
+    wordInput.className = '';
+    wordInput.focus();
+  }
+}
+
+// =====================================================================
+// INPUT HANDLING
+// =====================================================================
+function onKeyDown(e) {
+  if (state.screen !== 'game') return;
+  const lvl = LEVELS[state.level - 1];
+  if (lvl.mode !== 'letter') return;
+
+  // Ignore modifier-only, function keys, etc.
+  if (e.key.length !== 1) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const t = state.activeTarget;
+  if (!t || t.expired) return;
+
+  const pressed = e.key.toUpperCase();
+  if (pressed === t.text) {
+    handleSuccess(t);
+  } else {
+    handleMiss(t, 'wrong-key');
+  }
+}
+
+// Word/sentence input — live typing
+wordInput.addEventListener('input', () => {
+  const t = state.activeTarget;
+  if (!t || t.expired) return;
+  const lvl = LEVELS[state.level - 1];
+  const typed = wordInput.value;
+  const target = t.text;
+
+  if (lvl.mode === 'word') {
+    const caseSensitive = (lvl.id === 6);
+    const compare       = caseSensitive ? target : target.toLowerCase();
+    const compareTyped  = caseSensitive ? typed  : typed.toLowerCase();
+
+    if (compareTyped === compare) {
+      // Exact match — instant hit
+      handleSuccess(t);
+    } else if (compare.startsWith(compareTyped)) {
+      wordInput.className = 'correct';
+      updateWordDisplay(t, typed.length);
+    } else {
+      wordInput.className = 'wrong';
+    }
+  } else if (lvl.mode === 'sentence') {
+    const compare      = target;
+    const compareTyped = typed;
+
+    if (compareTyped === compare) {
+      handleSuccess(t);
+    } else if (compare.startsWith(compareTyped)) {
+      wordInput.className = 'correct';
+      updateWordDisplay(t, typed.length);
+    } else {
+      wordInput.className = 'wrong';
+    }
+  }
+});
+
+function updateWordDisplay(t, typedLen) {
+  const text = t.text;
+  const typed = text.slice(0, typedLen);
+  const remaining = text.slice(typedLen);
+  t.textNode.innerHTML =
+    `<span class="typed">${escHtml(typed)}</span><span class="remaining">${escHtml(remaining)}</span>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =====================================================================
+// SUCCESS / MISS / EXPIRY
+// =====================================================================
+function handleSuccess(t) {
+  if (t.expired) return;
+  t.expired = true;
+
+  state.score++;
+  state.consecutiveMisses = 0;
+  state.successesThisLevel++;
+
+  soundSuccess();
+  spawnParticles(t);
+  animateTargetSuccess(t);
+  updateHUD();
+
+  if (state.successesThisLevel >= 100) {
+    doLevelUp();
+  } else {
+    scheduleSpawn(300);
+  }
+}
+
+function handleMiss(t, reason) {
+  // Only visual/audio for wrong-key during letter mode
+  // For expiry, handleExpiry calls us differently
+  state.consecutiveMisses++;
+  soundMiss();
+  flashMiss();
+
+  if (t && t.node) {
+    t.node.style.animation = 'none';
+    void t.node.offsetWidth;
+    t.node.style.animation = 'shake 0.3s ease';
+  }
+
+  updateHUD();
+
+  if (state.consecutiveMisses >= 3) {
+    gameOver();
+  }
+}
+
+function handleExpiry(t) {
+  if (t.expired) return;
+  t.expired = true;
+  state.activeTarget = null;
+
+  soundMiss();
+  state.consecutiveMisses++;
+  flashMiss();
+  updateHUD();
+
+  // Animate out
+  t.node.style.animation = 'none';
+  void t.node.offsetWidth;
+  t.node.style.animation = 'shake 0.35s ease';
+  setTimeout(() => {
+    t.node.style.opacity = '0';
+    t.node.style.transition = 'opacity 0.2s';
+    setTimeout(() => { if(t.node.parentNode) t.node.parentNode.removeChild(t.node); }, 220);
+  }, 350);
+
+  if (state.consecutiveMisses >= 3) {
+    setTimeout(() => gameOver(), 400);
+  } else {
+    scheduleSpawn(300);
+  }
+}
+
+function animateTargetSuccess(t) {
+  t.node.style.animation = 'none';
+  void t.node.offsetWidth;
+  if (t.isSentence) {
+    t.node.classList.add('correct-anim');
+  } else {
+    t.node.style.animation = 'pop-correct 0.4s ease forwards';
+  }
+  setTimeout(() => { if(t.node.parentNode) t.node.parentNode.removeChild(t.node); }, 420);
+}
+
+// =====================================================================
+// PARTICLES
+// =====================================================================
+function spawnParticles(t) {
+  const count = 8;
+  const rect = t.node.getBoundingClientRect();
+  const arenaRect = arena.getBoundingClientRect();
+  const cx = rect.left - arenaRect.left + rect.width / 2;
+  const cy = rect.top  - arenaRect.top  + rect.height / 2;
+
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (i / count) * Math.PI * 2;
+    const dist  = 50 + Math.random() * 60;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.style.left = cx + 'px';
+    p.style.top  = cy + 'px';
+    p.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+    p.style.width  = (6 + Math.random() * 8) + 'px';
+    p.style.height = p.style.width;
+    arena.appendChild(p);
+    // Trigger transition next frame
+    requestAnimationFrame(() => {
+      p.style.transform = `translate(${dx}px, ${dy}px)`;
+      p.style.opacity = '0';
+    });
+    setTimeout(() => { if(p.parentNode) p.parentNode.removeChild(p); }, 550);
+  }
+}
+
+// =====================================================================
+// LEVEL UP
+// =====================================================================
+function doLevelUp() {
+  soundLevelUp();
+  levelUpBanner.textContent = state.level < LEVELS.length
+    ? `LEVEL UP! → Level ${state.level + 1} 🎉`
+    : `🏆 Max Level! Amazing! 🏆`;
+  levelUpBanner.classList.remove('active');
+  void levelUpBanner.offsetWidth;
+  levelUpBanner.classList.add('active');
+
+  // Remove current target if any
+  if (state.activeTarget) {
+    const t = state.activeTarget;
+    state.activeTarget = null;
+    if (t.node.parentNode) t.node.parentNode.removeChild(t.node);
+  }
+
+  setTimeout(() => {
+    if (state.level < LEVELS.length) {
+      state.level++;
+      state.successesThisLevel = 0;
+      state.consecutiveMisses = 0;
+
+      const lvl = LEVELS[state.level - 1];
+      // Switch input mode if needed
+      if (lvl.mode === 'letter') {
+        inputBar.classList.add('hidden');
+        if (!hasKeyDownListener) {
+          document.addEventListener('keydown', onKeyDown);
+          hasKeyDownListener = true;
+        }
+      } else {
+        inputBar.classList.remove('hidden');
+        wordInput.value = '';
+        wordInput.className = '';
+        // Remove keydown if switching away from letter
+        document.removeEventListener('keydown', onKeyDown);
+        hasKeyDownListener = false;
+      }
+
+      updateHUD();
+      scheduleSpawn(400);
+    } else {
+      // Already at max level, keep playing
+      state.successesThisLevel = 0;
+      scheduleSpawn(400);
+    }
+  }, 1800);
+}
+
+let hasKeyDownListener = false;
+
+// =====================================================================
+// GAME OVER
+// =====================================================================
+function gameOver() {
+  if (state.screen !== 'game') return;
+
+  cancelAnimationFrame(state.animFrameId);
+  if (spawnTimeout) clearTimeout(spawnTimeout);
+  document.removeEventListener('keydown', onKeyDown);
+  hasKeyDownListener = false;
+
+  // Clear targets
+  arena.querySelectorAll('.target').forEach(n => n.remove());
+  arena.querySelectorAll('.particle').forEach(n => n.remove());
+
+  // Arena shake
+  arena.style.animation = 'none';
+  void arena.offsetWidth;
+  arena.style.animation = 'shake 0.5s ease';
+  setTimeout(() => { arena.style.animation = ''; }, 600);
+
+  $('final-score').textContent = state.score;
+  $('final-level-info').textContent = `Reached Level ${state.level}`;
+  showScreen('gameover');
+}
+
+// =====================================================================
+// HUD UPDATE
+// =====================================================================
+function updateHUD() {
+  // Score with bounce
+  const oldScore = +hudScore.textContent;
+  hudScore.textContent = state.score;
+  if (state.score !== oldScore) {
+    hudScore.classList.remove('bounce');
+    void hudScore.offsetWidth;
+    hudScore.classList.add('bounce');
+    setTimeout(() => hudScore.classList.remove('bounce'), 300);
+  }
+
+  hudLevel.textContent = state.level;
+  hudHits.innerHTML = `${state.successesThisLevel}<span style="color:#555;font-size:0.8rem">/100</span>`;
+  progressFill.style.width = (state.successesThisLevel) + '%';
+
+  // Lives = 3 - consecutiveMisses (capped at 0)
+  const livesLeft = Math.max(0, 3 - state.consecutiveMisses);
+  const lostLives  = 3 - livesLeft;
+  livesDisplay.textContent = '♥'.repeat(livesLeft) + '♡'.repeat(lostLives);
+  livesDisplay.style.color = livesLeft <= 1 ? '#ff4d6d' : '#fff';
+}
+
+function flashMiss() {
+  missFlash.classList.remove('active');
+  void missFlash.offsetWidth;
+  missFlash.classList.add('active');
+  setTimeout(() => missFlash.classList.remove('active'), 150);
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+buildStartScreen();
+state = freshState(1);
+</script>
+</body>
+</html>
